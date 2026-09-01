@@ -10,6 +10,7 @@ import {
   UserPlus,
   CreditCard,
   Code,
+  Bot,
 } from 'lucide-react'
 
 const Dashboard = lazy(() => import('../pages/Dashboard'))
@@ -18,6 +19,7 @@ const Extensions = lazy(() => import('../pages/Extensions'))
 const GPUMonitor = lazy(() => import('../pages/GPUMonitor'))
 const Models = lazy(() => import('../pages/Models'))
 const RemoteProvider = lazy(() => import('../pages/RemoteProvider'))
+const DreamWorker = lazy(() => import('../pages/DreamWorker'))
 const ServiceMap = lazy(() => import('../pages/ServiceMap'))
 const Invites = lazy(() => import('../pages/Invites'))
 const Usage = lazy(() => import('../pages/Usage'))
@@ -83,6 +85,16 @@ export const coreRoutes = [
     getProps: () => ({}),
     sidebar: true,
     order: 3.2,
+  },
+  {
+    id: 'dream-worker',
+    path: '/dream-worker',
+    label: 'Dream Worker',
+    icon: Bot,
+    component: DreamWorker,
+    getProps: () => ({}),
+    sidebar: true,
+    order: 3.3,
   },
   // Usage + Setup / Owner are reachable from Settings rather than the top-level
   // sidebar. Setup / Owner is a factory/distributor/service-provider flow, not
