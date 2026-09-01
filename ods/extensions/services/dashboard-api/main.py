@@ -62,7 +62,7 @@ from host_agent_client import (
 )
 from agent_monitor import collect_metrics
 from routers import (
-    workflows, features, setup, updates, agents, privacy, extensions,
+    workflows, features, setup, updates, agents, privacy, extensions, dream_worker,
     gpu as gpu_router, resources, voice, models as models_router, model_state as model_state_router,
     model_routes as model_routes_router, remote_provider_status, templates,
     auth as auth_router,
@@ -1098,6 +1098,7 @@ app.include_router(updates.router)
 app.include_router(agents.router)
 app.include_router(privacy.router)
 app.include_router(extensions.router)
+app.include_router(dream_worker.router)
 app.include_router(gpu_router.router)
 app.include_router(resources.router)
 app.include_router(voice.router)
