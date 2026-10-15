@@ -1383,7 +1383,8 @@ def build_models_payload(gpu_info: Optional[GPUInfo], loaded_model: Optional[str
         }
         vram_required = float(model["vram_required_gb"])
         selector_required = _effective_required_memory_gb({**model, "context_length": actual_context}, runtime_profile)
-        if gpu_info:
+        cpu_only = gpu_info is None or normalize_key(gpu_info.gpu_backend) == "cpu"
+        if not cpu_only:
             capacity_gb = _usable_model_memory_gb(gpu_info)
             fits_total = bool(_fits_declared_vram(selector_required, capacity_gb) or is_loaded)
             fits_current = bool(_fits_declared_vram(selector_required, free_gb) or is_loaded)
@@ -1468,10 +1469,10 @@ def build_models_payload(gpu_info: Optional[GPUInfo], loaded_model: Optional[str
             "configured": is_configured,
             "recommendation": model_recommendation,
             "fitsVram": fits_total,
-            "memoryKind": "gpu" if gpu_info else "cpu",
-            "memoryBudgetGb": round(_usable_model_memory_gb(gpu_info) if gpu_info else _cpu_model_budget_gb(install_ram_gb), 2),
+            "memoryKind": "cpu" if cpu_only else "gpu",
+            "memoryBudgetGb": round(_cpu_model_budget_gb(install_ram_gb) if cpu_only else _usable_model_memory_gb(gpu_info), 2),
             "fitsCurrentVram": fits_current,
-            "fitLabel": runtime_profile.get("fit_label") if runtime_profile else (("Fits GPU" if fits_total else "Too large") if gpu_info else ("Fits RAM estimate" if fits_total else "Too large")),
+            "fitLabel": runtime_profile.get("fit_label") if runtime_profile else (("Fits RAM estimate" if fits_total else "Too large") if cpu_only else ("Fits GPU" if fits_total else "Too large")),
             "runtimeProfile": {
                 "id": runtime_profile.get("id"),
                 "label": runtime_profile.get("label"),
