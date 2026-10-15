@@ -1670,7 +1670,7 @@ function getCompatibilityMeta(model, memory, hermesMinimumContext = 0) {
   if (!model?.fitsVram) {
     const nearLimit = memory.total > 0 && memory.required <= memory.total * 1.08
     return {
-      label: nearLimit ? 'High VRAM' : 'Too large',
+      label: nearLimit ? (model?.memoryKind === 'cpu' ? 'High RAM' : 'High VRAM') : 'Too large',
       detail: nearLimit ? 'Heavy' : 'Incompatible',
       tone: nearLimit ? 'amber' : 'red',
     }

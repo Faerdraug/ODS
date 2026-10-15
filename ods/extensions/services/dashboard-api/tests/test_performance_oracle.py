@@ -4,6 +4,7 @@ from pathlib import Path
 from helpers import record_model_performance
 from models import GPUInfo
 from performance_oracle import (
+    _cpu_model_budget_gb,
     build_models_payload,
     current_model_matches,
     evaluate_performance,
@@ -1689,3 +1690,58 @@ def test_published_exact_matches_gguf_stem_identity(data_dir):
     assert perf["source"] == "published_exact"
     assert perf["tokensPerSec"] == 43.7
     assert perf["sourceUrl"] == "https://example.test/stem-bench"
+
+
+def test_cpu_model_budget_is_bounded_and_reserves_host_ram():
+    assert _cpu_model_budget_gb(0) == 4.0  # Unknown capacity: fail conservatively
+    assert _cpu_model_budget_gb(8) == 0.0
+    assert _cpu_model_budget_gb(12) == 2.0
+    assert _cpu_model_budget_gb(31) == 8.0
+    assert _cpu_model_budget_gb(128) == 8.0
+
+
+def test_cpu_only_model_fit_uses_ram_budget_not_fixed_four_gb(tmp_path, monkeypatch):
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    monkeypatch.delenv("GGUF_FILE", raising=False)
+    monkeypatch.delenv("MODEL_RECOMMENDATION_MODEL", raising=False)
+    install_dir = tmp_path / "ods"
+    install_dir.mkdir()
+    (install_dir / ".env").write_text(
+        "SYSTEM_RAM_GB=31\nGPU_BACKEND=cpu\n", encoding="utf-8"
+    )
+    candidate = {
+        **_model(),
+        "id": "qwen-coder-7b",
+        "name": "Qwen Coder 7B",
+        "gguf_file": "Qwen-Coder-7B-Q4_K_M.gguf",
+        "llm_model_name": "qwen-coder-7b",
+        "size_mb": 4400,
+        "vram_required_gb": 5.2,
+        "context_length": 8192,
+    }
+    result = build_models_payload(
+        None, None, 0, install_dir, catalog=[candidate], evidence=[]
+    )["models"][0]
+    assert result["memoryKind"] == "cpu"
+    assert result["memoryBudgetGb"] == 8.0
+    assert result["fitsVram"] is True
+    assert result["fitLabel"] == "Fits RAM estimate"
+
+    (install_dir / ".env").write_text(
+        "SYSTEM_RAM_GB=12\nGPU_BACKEND=cpu\n", encoding="utf-8"
+    )
+    too_small = build_models_payload(
+        None, None, 0, install_dir, catalog=[candidate], evidence=[]
+    )["models"][0]
+    assert too_small["memoryBudgetGb"] == 2.0
+    assert too_small["fitsVram"] is False
+
+
+def test_gpu_model_fit_remains_gpu_memory_based(tmp_path):
+    model = _model()
+    result = build_models_payload(
+        _gpu(total_mb=8192), None, 0, tmp_path, catalog=[model], evidence=[]
+    )["models"][0]
+    assert result["memoryKind"] == "gpu"
+    assert result["fitsVram"] is True
+    assert result["fitLabel"] == "Fits GPU"
