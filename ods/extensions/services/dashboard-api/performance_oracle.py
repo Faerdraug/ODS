@@ -797,6 +797,20 @@ def _context_options(
     ]
 
 
+def _cpu_model_budget_gb(system_ram_gb: int) -> float:
+    """Conservative CPU-only *planning* budget, not a cgroup admission check.
+
+    Dashboard API runs in a different container from llama-server and cannot
+    safely interpret its own cgroup as the inference container's limit.
+    Reserve 8 GiB for the host/other services, admit at most half the
+    remainder, and cap planning at 8 GiB. Unknown RAM retains the historical
+    conservative 4 GiB fallback. Actual activation remains authoritative.
+    """
+    if system_ram_gb <= 0:
+        return 4.0
+    return min(8.0, max(0.0, (float(system_ram_gb) - 8.0) * 0.5))
+
+
 def _usable_model_memory_gb(gpu_info: Optional[GPUInfo]) -> float:
     if not gpu_info:
         return 0.0
@@ -1374,7 +1388,11 @@ def build_models_payload(gpu_info: Optional[GPUInfo], loaded_model: Optional[str
             fits_total = bool(_fits_declared_vram(selector_required, capacity_gb) or is_loaded)
             fits_current = bool(_fits_declared_vram(selector_required, free_gb) or is_loaded)
         else:
-            fits_total = bool(_fits_declared_vram(selector_required, 4.0) or is_loaded)
+            # CPU inference uses system RAM, not discrete GPU VRAM.
+            # This is only a conservative eligibility estimate; the activation
+            # transaction still validates real container memory and can roll back.
+            cpu_capacity = _cpu_model_budget_gb(install_ram_gb)
+            fits_total = bool(_fits_declared_vram(selector_required, cpu_capacity) or is_loaded)
             fits_current = False
         perf = evaluate_performance(model, gpu_info, metadata, is_loaded, live_tps, actual_context, flags, evidence, fits_total, runtime)
         reason = recommendation.get("reason") if is_configured else ""
@@ -1450,8 +1468,10 @@ def build_models_payload(gpu_info: Optional[GPUInfo], loaded_model: Optional[str
             "configured": is_configured,
             "recommendation": model_recommendation,
             "fitsVram": fits_total,
+            "memoryKind": "gpu" if gpu_info else "cpu",
+            "memoryBudgetGb": round(_usable_model_memory_gb(gpu_info) if gpu_info else _cpu_model_budget_gb(install_ram_gb), 2),
             "fitsCurrentVram": fits_current,
-            "fitLabel": runtime_profile.get("fit_label") if runtime_profile else ("Fits GPU" if fits_total else "Too large"),
+            "fitLabel": runtime_profile.get("fit_label") if runtime_profile else (("Fits GPU" if fits_total else "Too large") if gpu_info else ("Fits RAM estimate" if fits_total else "Too large")),
             "runtimeProfile": {
                 "id": runtime_profile.get("id"),
                 "label": runtime_profile.get("label"),
