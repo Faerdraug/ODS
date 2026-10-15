@@ -1707,7 +1707,7 @@ def test_cpu_only_model_fit_uses_ram_budget_not_fixed_four_gb(tmp_path, monkeypa
     install_dir = tmp_path / "ods"
     install_dir.mkdir()
     (install_dir / ".env").write_text(
-        "SYSTEM_RAM_GB=31\\nGPU_BACKEND=cpu\\n", encoding="utf-8"
+        "SYSTEM_RAM_GB=31\nGPU_BACKEND=cpu\n", encoding="utf-8"
     )
     candidate = {
         **_model(),
@@ -1728,7 +1728,7 @@ def test_cpu_only_model_fit_uses_ram_budget_not_fixed_four_gb(tmp_path, monkeypa
     assert result["fitLabel"] == "Fits RAM estimate"
 
     (install_dir / ".env").write_text(
-        "SYSTEM_RAM_GB=12\\nGPU_BACKEND=cpu\\n", encoding="utf-8"
+        "SYSTEM_RAM_GB=12\nGPU_BACKEND=cpu\n", encoding="utf-8"
     )
     too_small = build_models_payload(
         None, None, 0, install_dir, catalog=[candidate], evidence=[]
